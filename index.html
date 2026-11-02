@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kobo – money in, money out</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<style>
+:root{--bg:#eef2f0;--card:#fff;--ink:#16231f;--mute:#64736d;--line:#dbe3df;--in:#0b7a5b;--out:#b4235a;--acc:#16231f}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 "Bricolage Grotesque",system-ui,sans-serif}
+.wrap{max-width:880px;margin:0 auto;padding:20px 16px 60px}
+header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;margin-bottom:18px}
+h1{font-size:28px;font-weight:800;margin:0;letter-spacing:-.02em}
+h2{font-size:18px;margin:0 0 12px}
+input,select,button{font:inherit;color:inherit}
+input,select{padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:#fff;width:100%}
+input:focus-visible,select:focus-visible,button:focus-visible{outline:3px solid #7fc9b2;outline-offset:1px}
+button{cursor:pointer;border:0;border-radius:8px;padding:10px 16px;background:var(--acc);color:#fff;font-weight:600}
+button.ghost{background:transparent;color:var(--mute);border:1px solid var(--line);padding:8px 12px}
+.hero{background:var(--card);border-radius:14px;padding:20px;margin-bottom:16px;border:1px solid var(--line)}
+.today{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 20px;margin-bottom:16px}
+.today .split{margin-top:4px}
+.dhead{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:8px}
+.dhead input{width:auto;flex:1;max-width:190px}
+.wk{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-top:14px}
+.wk button{background:var(--bg);color:var(--ink);padding:6px 2px;border-radius:8px;font-size:12px;font-weight:400;display:flex;flex-direction:column;align-items:center;gap:2px}
+.wk button.on{outline:2px solid var(--ink)}
+.wk .b{height:46px;display:flex;align-items:flex-end;gap:2px}
+.wk .b i{width:8px;display:block;border-radius:2px 2px 0 0}
+.net{font-size:44px;font-weight:800;letter-spacing:-.03em;line-height:1.1}
+.sub{color:var(--mute);font-size:14px}
+.bar{display:flex;height:12px;border-radius:6px;overflow:hidden;background:var(--line);margin:14px 0 10px}
+.bar i{display:block;height:100%}
+.split{display:flex;gap:28px;flex-wrap:wrap}
+.split b{font-size:22px;display:block}
+.in{color:var(--in)}.out{color:var(--out)}
+nav{display:flex;gap:4px;margin-bottom:16px;border-bottom:1px solid var(--line)}
+nav button{background:none;color:var(--mute);border-radius:0;padding:10px 14px;border-bottom:3px solid transparent}
+nav button.on{color:var(--ink);border-color:var(--ink)}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:16px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:12px}
+label{font-size:13px;color:var(--mute);display:block;margin-bottom:3px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-bottom:12px}
+.seg button{background:#fff;color:var(--mute);border-radius:0;padding:8px 18px}
+.seg button.on.income{background:var(--in);color:#fff}.seg button.on.expense{background:var(--out);color:#fff}
+.row{display:flex;align-items:center;gap:12px;padding:11px 0;border-top:1px solid var(--line)}
+.row:first-child{border-top:0}
+.row .m{flex:1;min-width:0}.row .m small{display:block;color:var(--mute);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .x{background:none;color:var(--mute);padding:4px 8px;font-size:18px}
+.empty{color:var(--mute);padding:14px 0}
+.charts{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}
+.cv{position:relative;height:260px}
+.cat{display:flex;gap:10px;align-items:center;padding:6px 0}
+.cat span:first-child{width:130px;font-size:14px;flex:none}
+.cat .t{flex:1;height:8px;background:var(--line);border-radius:4px}.cat .t i{display:block;height:100%;border-radius:4px}
+.cat span:last-child{width:110px;text-align:right;font-size:14px}
+.pill{display:inline-block;background:var(--bg);border-radius:20px;padding:4px 12px;margin:3px 4px 3px 0;font-size:14px}
+.hide{display:none!important}
+#login{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:16px;z-index:10}
+#login .panel{width:100%;max-width:360px;margin:0}
+#llinks{font-size:14px;margin-top:8px}#llinks a{color:var(--in);font-weight:600}
+.err{color:var(--out);font-size:14px;min-height:20px;margin:10px 0 0}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:16px}
+.stats div{background:var(--bg);border-radius:10px;padding:12px 14px}.stats b{font-size:20px;display:block}
+@media(max-width:520px){.net{font-size:34px}}
+</style>
+</head>
+<body>
+<div id="login" class="hide"><div class="panel">
+  <h1>Kobo</h1><p class="sub" id="ltitle" style="margin-top:4px"></p>
+  <form id="lform">
+    <div id="fem"><label for="em">Email</label><input id="em" type="email" autocomplete="username"></div>
+    <div id="fpw"><label for="pw" style="margin-top:10px">Password</label><input id="pw" type="password" minlength="6"></div>
+    <div id="fpw2" class="hide"><label for="pw2" style="margin-top:10px">Confirm password</label><input id="pw2" type="password" autocomplete="new-password"></div>
+    <div style="margin-top:14px"><button id="lgo">Sign in</button></div>
+  </form>
+  <p class="err" id="lerr" role="status"></p>
+  <div id="llinks"></div>
+</div></div>
+<div class="wrap hide" id="app">
+<header>
+  <h1>Kobo</h1>
+  <div style="display:flex;gap:8px;align-items:end">
+    <div><label for="month">Month</label><input type="month" id="month"></div>
+    <button class="ghost" id="signout">Sign out</button>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="sub">Left over in <span id="mlabel"></span></div>
+  <div class="net" id="net"></div>
+  <div class="bar"><i id="bin" style="background:var(--in)"></i><i id="bout" style="background:var(--out)"></i></div>
+  <div class="split"><div><span class="sub">Earned</span><b class="in" id="tin"></b></div><div><span class="sub">Spent</span><b class="out" id="tout"></b></div></div>
+</section>
+
+<section class="today">
+  <div class="dhead">
+    <button class="ghost" id="dprev" aria-label="Previous">‹</button>
+    <input type="date" id="dview" aria-label="Pick a day">
+    <button class="ghost" id="dnext" aria-label="Next">›</button>
+    <button class="ghost" id="dtoday">Today</button>
+    <button class="ghost hide" id="dweek">Whole week</button>
+  </div>
+  <div class="sub" id="wlabel"></div>
+  <div class="split"><div><span class="sub">Earned</span><b class="in" id="win"></b></div><div><span class="sub">Spent</span><b class="out" id="wout"></b></div><div><span class="sub">Net</span><b id="wnet"></b></div></div>
+  <div class="wk" id="wk"></div>
+</section>
+
+<nav id="tabs">
+  <button data-v="records" class="on">Records</button>
+  <button data-v="analysis">Analysis</button>
+  <button data-v="cats">Categories</button>
+</nav>
+
+<div id="records">
+  <div class="panel">
+    <h2>Add a record</h2>
+    <div class="seg" id="seg"><button class="income" data-t="income">Earning</button><button class="expense on" data-t="expense">Spending</button></div>
+    <div class="grid">
+      <div><label for="amt">Amount (₦)</label><input id="amt" type="number" min="0" step="any" inputmode="decimal" placeholder="0"></div>
+      <div><label for="cat">Category</label><select id="cat"></select></div>
+      <div><label for="date">Date</label><input id="date" type="date"></div>
+      <div><label for="note">Note (optional)</label><input id="note" maxlength="80" placeholder="e.g. Ikeja market"></div>
+    </div>
+    <button id="add">Save record</button>
+    <span class="sub" id="msg" role="status"></span>
+  </div>
+  <div class="panel">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <h2 style="margin:0">Records this month</h2>
+      <select id="filter" style="width:auto"><option value="all">All</option><option value="income">Earnings</option><option value="expense">Spending</option></select>
+    </div>
+    <div id="list"></div>
+  </div>
+</div>
+
+<div id="analysis" class="hide">
+  <div class="stats" id="stats"></div>
+  <div class="panel charts">
+    <div><h2>Where the money went</h2><div class="cv"><canvas id="c1"></canvas></div></div>
+    <div><h2>Where the money came from</h2><div class="cv"><canvas id="c2"></canvas></div></div>
+  </div>
+  <div class="panel"><h2>Last 6 months</h2><div class="cv"><canvas id="c3"></canvas></div></div>
+  <div class="panel"><h2>Spending by category</h2><div id="tbl-out"></div><h2 style="margin-top:18px">Earnings by category</h2><div id="tbl-in"></div></div>
+</div>
+
+<div id="cats" class="hide">
+  <div class="panel">
+    <h2>Add a category</h2>
+    <div class="grid">
+      <div><label for="ctype">Type</label><select id="ctype"><option value="expense">Spending</option><option value="income">Earning</option></select></div>
+      <div><label for="cname">Name</label><input id="cname" maxlength="30" placeholder="e.g. Church giving"></div>
+    </div>
+    <button id="cadd">Add category</button> <span class="sub" id="cmsg" role="status"></span>
+  </div>
+  <div class="panel"><h2>Earning categories</h2><div id="lin"></div><h2 style="margin-top:16px">Spending categories</h2><div id="lout"></div></div>
+  <div class="panel">
+    <h2>Backup</h2>
+    <p class="sub" style="margin-top:0">Your records are saved in your online account, so they show on any device you sign in on. Download a backup now and then. Restoring adds the records from a backup file to your account.</p>
+    <button class="ghost" id="exp">Download backup</button>
+    <button class="ghost" id="impb">Restore backup</button><input type="file" id="imp" accept=".json" class="hide">
+  </div>
+</div>
+</div>
+
+<script>
+const $=s=>document.querySelector(s), KEY='kobo-v1';
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt=n=>'₦'+Number(n).toLocaleString('en-NG',{maximumFractionDigits:2});
+const PAL=['#0b7a5b','#b4235a','#3b5bdb','#e8a317','#7048e8','#0c8599','#d9480f','#5c940d','#862e9c','#495057'];
+// ===== Supabase settings: paste yours here =====
+const SUPABASE_URL='https://cnygekfrnftfpqhtyamr.supabase.co';
+const SUPABASE_KEY='sb_publishable_ffnElOi__DYFhjemiYn_lQ_-H1s5kWA';
+// ===============================================
+const RECOVERY=location.hash.includes('type=recovery');
+const CFG_OK=!SUPABASE_URL.includes('YOUR_');
+const sb=CFG_OK?supabase.createClient(SUPABASE_URL,SUPABASE_KEY):null;
+const DEF={income:['Salary','Freelance','Business','Gift'],expense:['Food','Transport','Rent','Data & airtime','Bills','Shopping','Savings','Other']};
+let S={tx:[],cats:{income:[],expense:[]}};
+const fromRow=r=>({id:r.id,type:r.type,amount:+r.amount,cat:r.category,date:r.date,note:r.note||''});
+async function fetchAll(table){let all=[],from=0;for(;;){const {data,error}=await sb.from(table).select('*').order('created_at',{ascending:true}).order('id').range(from,from+999);if(error)throw error;all=all.concat(data);if(data.length<1000)return all;from+=1000}}
+async function load(){
+  let [t,c]=await Promise.all([fetchAll('transactions'),fetchAll('categories')]);
+  if(!c.length){
+    const seed=['income','expense'].flatMap(k=>DEF[k].map(name=>({type:k,name})));
+    const r=await sb.from('categories').insert(seed);if(r.error)throw r.error;
+    c=await fetchAll('categories');
+  }
+  S.tx=t.map(fromRow);S.cats={income:[],expense:[]};c.forEach(r=>S.cats[r.type].push(r.name));
+}
+const today=()=>{const d=new Date();d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,10)};
+let type='expense', view='records', month=today().slice(0,7), dday=today(), sel=false, charts={};
+const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+const fmtDay=ds=>new Date(ds+'T12:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'});
+const dayTot=ds=>{const a=S.tx.filter(t=>t.date===ds);return[sum(a.filter(t=>t.type==='income')),sum(a.filter(t=>t.type==='expense'))]};
+const setNet=(el,i,x)=>{$(el).textContent=(i-x<0?'−':'')+fmt(Math.abs(i-x));$(el).className=i-x<0?'out':''};
+function shiftDay(n){const d=new Date(dday+'T12:00');d.setDate(d.getDate()+n*(sel?1:7));dday=iso(d);renderDayWeek()}
+function renderDayWeek(){
+  $('#dview').value=dday;
+  const d=new Date(dday+'T12:00');d.setDate(d.getDate()-(d.getDay()+6)%7);
+  const days=[];for(let i=0;i<7;i++){days.push(iso(d));d.setDate(d.getDate()+1)}
+  const tt=days.map(dayTot), wi=tt.reduce((s,x)=>s+x[0],0), wx=tt.reduce((s,x)=>s+x[1],0), mx=Math.max(1,...tt.flat());
+  if(sel){const k=tt[days.indexOf(dday)]||[0,0];
+    $('#wlabel').textContent=new Date(dday+'T12:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'})+(dday===today()?' (today)':'');
+    $('#win').textContent=fmt(k[0]);$('#wout').textContent=fmt(k[1]);setNet('#wnet',k[0],k[1]);
+  }else{
+    $('#wlabel').textContent='Week of '+fmtDay(days[0])+' to '+fmtDay(days[6]);
+    $('#win').textContent=fmt(wi);$('#wout').textContent=fmt(wx);setNet('#wnet',wi,wx);
+  }
+  $('#dweek').classList.toggle('hide',!sel);
+  const h=v=>v?Math.max(3,v/mx*46):0, wd=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  $('#wk').innerHTML=days.map((ds,i)=>`<button data-day="${ds}" class="${sel&&ds===dday?'on':''}" aria-label="${fmtDay(ds)}: earned ${fmt(tt[i][0])}, spent ${fmt(tt[i][1])}"><span class="b"><i style="height:${h(tt[i][0])}px;background:var(--in)"></i><i style="height:${h(tt[i][1])}px;background:var(--out)"></i></span><span>${wd[i]}</span><b>${+ds.slice(8)}</b></button>`).join('');
+}
+
+const inMonth=m=>S.tx.filter(t=>t.date.slice(0,7)===m);
+const sum=a=>a.reduce((s,t)=>s+t.amount,0);
+const byCat=(a)=>{const o={};a.forEach(t=>o[t.cat]=(o[t.cat]||0)+t.amount);return Object.entries(o).sort((x,y)=>y[1]-x[1])};
+const mname=m=>new Date(m+'-15').toLocaleDateString('en-GB',{month:'long',year:'numeric'});
+
+function fillCats(){$('#cat').innerHTML=S.cats[type].map(c=>`<option>${esc(c)}</option>`).join('')}
+
+function render(){
+  const tx=inMonth(month), inc=sum(tx.filter(t=>t.type==='income')), out=sum(tx.filter(t=>t.type==='expense'));
+  $('#mlabel').textContent=mname(month);
+  $('#net').textContent=(inc-out<0?'−':'')+fmt(Math.abs(inc-out));
+  $('#net').className='net '+(inc-out<0?'out':'');
+  $('#tin').textContent=fmt(inc);$('#tout').textContent=fmt(out);
+  const tot=inc+out||1;$('#bin').style.width=inc/tot*100+'%';$('#bout').style.width=out/tot*100+'%';
+  renderDayWeek();
+  renderList(tx);
+  if(view==='analysis')renderAnalysis(tx);
+  if(view==='cats')renderCats();
+}
+
+function renderList(tx){
+  const f=$('#filter').value, rows=tx.filter(t=>f==='all'||t.type===f).sort((a,b)=>b.date.localeCompare(a.date));
+  $('#list').innerHTML=rows.length?rows.map(t=>`<div class="row"><div class="m"><b>${esc(t.cat)}</b><small>${new Date(t.date+'T12:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'})}${t.note?' · '+esc(t.note):''}</small></div><b class="${t.type==='income'?'in':'out'}">${t.type==='income'?'+':'−'}${fmt(t.amount)}</b><button class="x" data-del="${t.id}" aria-label="Delete record">×</button></div>`).join(''):'<div class="empty">Nothing recorded for this month yet. Add your first record above.</div>';
+}
+
+function mk(id,cfg){if(charts[id])charts[id].destroy();charts[id]=new Chart($('#'+id),cfg)}
+function table(el,data,color){
+  const t=data.reduce((s,d)=>s+d[1],0);
+  $(el).innerHTML=data.length?data.map(([c,v],i)=>`<div class="cat"><span>${esc(c)}</span><span class="t"><i style="width:${v/t*100}%;background:${color}"></i></span><span>${fmt(v)} · ${Math.round(v/t*100)}%</span></div>`).join(''):'<div class="empty">No data for this month.</div>';
+}
+function renderAnalysis(tx){
+  const ex=tx.filter(t=>t.type==='expense'), inc=tx.filter(t=>t.type==='income');
+  const eC=byCat(ex), iC=byCat(inc);
+  const months=[...new Set(S.tx.filter(t=>t.type==='income').map(t=>t.date.slice(0,7)))];
+  const avg=months.length?sum(S.tx.filter(t=>t.type==='income'))/months.length:0;
+  $('#stats').innerHTML=`<div><span class="sub">Average earned per month</span><b>${fmt(avg)}</b><span class="sub">across ${months.length} month${months.length===1?'':'s'} with earnings</span></div><div><span class="sub">Biggest spending</span><b>${eC[0]?esc(eC[0][0]):'—'}</b><span class="sub">${eC[0]?fmt(eC[0][1]):'nothing yet'}</span></div>`;
+  const dn=(d)=>({type:'doughnut',data:{labels:d.map(x=>x[0]),datasets:[{data:d.map(x=>x[1]),backgroundColor:PAL,borderWidth:2}]},options:{maintainAspectRatio:false,plugins:{legend:{position:'bottom'}}}});
+  if(eC.length)mk('c1',dn(eC));else if(charts.c1){charts.c1.destroy();delete charts.c1}
+  if(iC.length)mk('c2',dn(iC));else if(charts.c2){charts.c2.destroy();delete charts.c2}
+  const ms=[];for(let i=5;i>=0;i--){const d=new Date(+month.slice(0,4),+month.slice(5)-1-i,1);ms.push(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'))}
+  mk('c3',{type:'bar',data:{labels:ms.map(m=>new Date(m+'-15').toLocaleDateString('en-GB',{month:'short'})),datasets:[{label:'Earned',data:ms.map(m=>sum(inMonth(m).filter(t=>t.type==='income'))),backgroundColor:'#0b7a5b'},{label:'Spent',data:ms.map(m=>sum(inMonth(m).filter(t=>t.type==='expense'))),backgroundColor:'#b4235a'}]},options:{maintainAspectRatio:false,scales:{y:{beginAtZero:true,ticks:{callback:v=>'₦'+v.toLocaleString()}}}}});
+  table('#tbl-out',eC,'#b4235a');table('#tbl-in',iC,'#0b7a5b');
+}
+
+function renderCats(){
+  const used=new Set(S.tx.map(t=>t.type+'|'+t.cat));
+  for(const t of ['income','expense'])$('#l'+(t==='income'?'in':'out')).innerHTML=S.cats[t].map(c=>`<span class="pill">${esc(c)}${used.has(t+'|'+c)?'':` <button class="x" style="padding:0 2px" data-rm="${t}|${esc(c)}" aria-label="Remove ${esc(c)}">×</button>`}</span>`).join('');
+}
+
+// events
+$('#month').value=month;
+$('#month').onchange=e=>{if(e.target.value){month=e.target.value;render()}};
+$('#date').value=today();
+$('#seg').onclick=e=>{const b=e.target.closest('button');if(!b)return;type=b.dataset.t;document.querySelectorAll('#seg button').forEach(x=>x.classList.toggle('on',x===b));fillCats()};
+$('#tabs').onclick=e=>{const b=e.target.closest('button');if(!b)return;view=b.dataset.v;document.querySelectorAll('#tabs button').forEach(x=>x.classList.toggle('on',x===b));['records','analysis','cats'].forEach(v=>$('#'+v).classList.toggle('hide',v!==view));render()};
+$('#dview').onchange=e=>{if(e.target.value){dday=e.target.value;sel=true;renderDayWeek()}};
+$('#dprev').onclick=()=>shiftDay(-1);
+$('#dnext').onclick=()=>shiftDay(1);
+$('#dtoday').onclick=()=>{dday=today();sel=true;renderDayWeek()};
+$('#dweek').onclick=()=>{sel=false;renderDayWeek()};
+$('#wk').onclick=e=>{const b=e.target.closest('[data-day]');if(b){if(sel&&dday===b.dataset.day)sel=false;else{dday=b.dataset.day;sel=true}renderDayWeek()}};
+$('#filter').onchange=render;
+$('#add').onclick=async()=>{
+  const amount=parseFloat($('#amt').value), date=$('#date').value;
+  if(!(amount>0)||!date){$('#msg').textContent=' Enter an amount and a date.';return}
+  $('#add').disabled=true;
+  const {data,error}=await sb.from('transactions').insert({type,amount,category:$('#cat').value,date,note:$('#note').value.trim()}).select().single();
+  $('#add').disabled=false;
+  if(error){$('#msg').textContent=' Could not save: '+error.message;return}
+  S.tx.push(fromRow(data));$('#amt').value='';$('#note').value='';$('#msg').textContent=' Saved.';
+  month=date.slice(0,7);$('#month').value=month;dday=date;sel=true;render();
+};
+$('#list').onclick=async e=>{const b=e.target.closest('[data-del]');if(!b||!confirm('Delete this record?'))return;
+  const {error}=await sb.from('transactions').delete().eq('id',b.dataset.del);
+  if(error){alert('Could not delete: '+error.message);return}
+  S.tx=S.tx.filter(t=>t.id!==b.dataset.del);render()};
+$('#cadd').onclick=async()=>{
+  const t=$('#ctype').value,n=$('#cname').value.trim();
+  if(!n){$('#cmsg').textContent=' Enter a name.';return}
+  if(S.cats[t].some(c=>c.toLowerCase()===n.toLowerCase())){$('#cmsg').textContent=' That category already exists.';return}
+  const {error}=await sb.from('categories').insert({type:t,name:n});
+  if(error){$('#cmsg').textContent=' '+error.message;return}
+  S.cats[t].push(n);$('#cname').value='';$('#cmsg').textContent=' Added.';fillCats();renderCats();
+};
+$('#cats').onclick=async e=>{const b=e.target.closest('[data-rm]');if(!b)return;const [t,c]=b.dataset.rm.split('|');
+  const {error}=await sb.from('categories').delete().eq('type',t).eq('name',c);
+  if(error){alert('Could not remove: '+error.message);return}
+  S.cats[t]=S.cats[t].filter(x=>x!==c);fillCats();renderCats()};
+$('#exp').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(S)],{type:'application/json'}));a.download='kobo-backup-'+today()+'.json';a.click()};
+$('#impb').onclick=()=>$('#imp').click();
+$('#imp').onchange=async e=>{
+  const f=e.target.files[0];e.target.value='';if(!f)return;
+  let d;try{d=JSON.parse(await f.text());if(!Array.isArray(d.tx)||!d.cats)throw 0}catch(err){alert('That file is not a Kobo backup.');return}
+  if(!confirm('Add '+d.tx.length+' records from this backup to your account? Do this only once per backup, or you will get duplicates.'))return;
+  const m=new Map();['income','expense'].forEach(k=>(d.cats[k]||[]).forEach(n=>m.set(k+'|'+n,{type:k,name:n})));
+  d.tx.forEach(t=>m.set(t.type+'|'+t.cat,{type:t.type,name:t.cat}));
+  const r1=await sb.from('categories').upsert([...m.values()],{onConflict:'user_id,type,name',ignoreDuplicates:true});
+  if(r1.error){alert(r1.error.message);return}
+  const rows=d.tx.map(t=>({type:t.type,amount:t.amount,category:t.cat,date:t.date,note:t.note||''}));
+  for(let i=0;i<rows.length;i+=500){const r=await sb.from('transactions').insert(rows.slice(i,i+500));if(r.error){alert(r.error.message);return}}
+  await load();fillCats();render();alert('Imported.');
+};
+
+let cd=today();
+function rollover(){
+  const n=today();if(n===cd)return;
+  if($('#date').value===cd)$('#date').value=n;
+  if(dday===cd)dday=n;
+  if(month===cd.slice(0,7)&&n.slice(0,7)!==cd.slice(0,7)){month=n.slice(0,7);$('#month').value=month}
+  cd=n;render();
+}
+document.addEventListener('visibilitychange',rollover);
+setInterval(rollover,60000);
+
+function showLogin(msg){$('#app').classList.add('hide');$('#login').classList.remove('hide');$('#lerr').textContent=msg||''}
+async function start(){
+  if(mode==='reset')return;
+  try{await load()}catch(err){showLogin('Could not load your data: '+(err.message||err));return}
+  $('#login').classList.add('hide');$('#app').classList.remove('hide');fillCats();render();
+}
+let mode=RECOVERY?'reset':'in';
+const T={in:['Sign in to see your records.','Sign in'],up:['Create your account.','Create account'],forgot:['We will email you a link to reset your password.','Send reset link'],reset:['Choose a new password.','Save new password']};
+function setMode(m){
+  mode=m;$('#ltitle').textContent=T[m][0];$('#lgo').textContent=T[m][1];
+  const np=m==='up'||m==='reset';
+  $('#fem').classList.toggle('hide',m==='reset');$('#fpw').classList.toggle('hide',m==='forgot');$('#fpw2').classList.toggle('hide',!np);
+  $('#em').required=m!=='reset';$('#pw').required=m!=='forgot';$('#pw2').required=np;
+  $('#pw').autocomplete=np?'new-password':'current-password';
+  $('#pw').value='';$('#pw2').value='';$('#lerr').textContent='';
+  $('#llinks').innerHTML=m==='in'?'<a href="#" data-m="up">Create account</a> &nbsp;·&nbsp; <a href="#" data-m="forgot">Forgot password?</a>':m==='reset'?'':'<a href="#" data-m="in">Back to sign in</a>';
+}
+$('#llinks').onclick=e=>{const a=e.target.closest('[data-m]');if(a){e.preventDefault();setMode(a.dataset.m)}};
+$('#lform').onsubmit=async e=>{
+  e.preventDefault();
+  const L=$('#lerr');
+  if(!CFG_OK){L.textContent='Add your Supabase URL and key at the top of the script first.';return}
+  const em=$('#em').value.trim(), pw=$('#pw').value;
+  if((mode==='up'||mode==='reset')&&pw!==$('#pw2').value){L.textContent='The two passwords do not match.';return}
+  $('#lgo').disabled=true;L.textContent='Please wait…';
+  try{
+    if(mode==='in'){
+      const {error}=await sb.auth.signInWithPassword({email:em,password:pw});
+      if(error){L.textContent=error.message;return}
+      $('#pw').value='';start();
+    }else if(mode==='up'){
+      const {data,error}=await sb.auth.signUp({email:em,password:pw});
+      if(error){L.textContent=/not allowed|disabled/i.test(error.message)?'Sign-ups are closed right now.':error.message;return}
+      if(data.session){start()}else{setMode('in');L.textContent='Almost done. Check your email and click the confirmation link, then sign in.'}
+    }else if(mode==='forgot'){
+      const {error}=await sb.auth.resetPasswordForEmail(em,{redirectTo:location.origin+location.pathname});
+      if(error){L.textContent=error.message;return}
+      setMode('in');L.textContent='If that email has an account, a reset link is on its way.';
+    }else{
+      const {error}=await sb.auth.updateUser({password:pw});
+      if(error){L.textContent=error.message;return}
+      history.replaceState(null,'',location.pathname);setMode('in');start();
+    }
+  }finally{$('#lgo').disabled=false}
+};
+$('#signout').onclick=async()=>{await sb.auth.signOut();S={tx:[],cats:{income:[],expense:[]}};setMode('in');showLogin()};
+setMode(mode);
+(async()=>{
+  if(!CFG_OK){showLogin('Add your Supabase URL and key at the top of the script first.');return}
+  sb.auth.onAuthStateChange(ev=>{if(ev==='PASSWORD_RECOVERY'){setMode('reset');showLogin()}});
+  if(mode==='reset'){showLogin();return}
+  const {data}=await sb.auth.getSession();
+  data.session?start():showLogin();
+})();
+</script>
+</body>
+</html>
